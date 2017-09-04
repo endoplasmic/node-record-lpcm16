@@ -1,6 +1,8 @@
 'use strict'
 
 var spawn = require('child_process').spawn
+var os = require('os')
+var path = require('path')
 
 var cp // Recording process
 
@@ -16,10 +18,16 @@ exports.start = function (options) {
     thresholdEnd: null,
     silence: '1.0',
     verbose: false,
-    recordProgram: 'rec'
+    recordProgram: 'sox',
+    audioDriver: os.platform() === 'darwin' ? 'coreaudio' : 'waveaudio'
   }
 
   options = Object.assign(defaults, options)
+
+  // link to the binary of SoX on windows
+  if (os.platform() === 'win32') {
+    options.recordProgram = path.join(__dirname, 'bin/sox/win32/sox');
+  }
 
   // Capture audio stream
   var cmd, cmdArgs, cmdOptions
@@ -31,13 +39,15 @@ exports.start = function (options) {
     default:
       cmd = options.recordProgram
       cmdArgs = [
-        '-q',                     // show no progress
-        '-r', options.sampleRate, // sample rate
-        '-c', '1',                // channels
-        '-e', 'signed-integer',   // sample encoding
-        '-b', '16',               // precision (bits)
-        '-t', 'wav',              // audio type
-        '-',                      // pipe
+        '-q',                      // show no progress
+        '-t', options.audioDriver, // which audio driver to use
+        '-d',                      // not sure, but it makes it work on windows
+        '-r', options.sampleRate,  // sample rate
+        '-c', '1',                 // channels
+        '-e', 'signed-integer',    // sample encoding
+        '-b', '16',                // precision (bits)
+        '-t', 'wav',               // audio type
+        '-',                       // pipe
             // end on silence
         'silence', '1', '0.1', options.thresholdStart || options.threshold + '%',
         '1', options.silence, options.thresholdEnd || options.threshold + '%'
